@@ -17,12 +17,27 @@ s.bind((SERVER, SERVER_PORT)) #Binds the socket with the IP_ADDRESS of server an
 
 s.listen(5) #Max no. of devices that can be connected is 5
 print(f"[SERVER] Listening as {SERVER}:{SERVER_PORT}")
-def quit(msg_length,msg,cs):#quit method for clean up and closing connection
+def broadcast(msg): #Broadcast to other clients
+    l = msg.split("]")
+    name_alais = l[0]
+    name= name_alais[1::] #Acquired name of disconnected client
+    msg = f"[SERVER] {name} is Now disconnected"
+    msg_length= str(len(msg)) #Making a string for sending the message
+    for cs in client_sockets: #Sending message to all other clients
+        cs.send(msg_length.encode())
+        cs.send(msg.encode())
+    return name
+
+
+def quit(msg_length,msg,cs):#quit method for clean up and closing connection and broadcasting to other client
     cs.send(msg_length.encode())
     cs.send(msg.encode())
     cs.close()
     client_sockets.remove(cs)
+    name = broadcast(msg)
+    print(f"[SERVER] {name} is now Disconnected")
     print(f"No. of clients connected to server are {len(client_sockets)}")
+
 
 def checker(msg_length,msg,cs): #checker method for checking
     if "quit" in msg:
