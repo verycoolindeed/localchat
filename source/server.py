@@ -1,43 +1,54 @@
 import socket
 from threading import Thread
+#from functions import listen_for_client
 
+HEADER = 16  #Reserved bytes for msg recv
+SERVER = socket.gethostbyname(socket.gethostname()) #Get the IP of device it is running
+SERVER_PORT = 49876
 
-SERVER_HOST = "0.0.0.0"
-SERVER_PORT = 8081
-separator_token = "<SEP>"
+client_sockets = set() #Creates a set for the no. of clients connected
 
+''' the below line will create a socket for the server '''
+s = socket.socket() #With default AF_INET and SOCK_STREAM
 
-client_sockets = set()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #Use to deal with OS Error of addr already in use
 
-s = socket.socket()
+s.bind((SERVER, SERVER_PORT)) #Binds the socket with the IP_ADDRESS of server and port
 
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-s.bind((SERVER_HOST, SERVER_PORT))
-
-s.listen(5)
-print(f"[*] Listening as {SERVER_HOST}:{SERVER_PORT}")
+s.listen(5) #Max no. of devices that can be connected is 5
+print(f"[SERVER] Listening as {SERVER}:{SERVER_PORT}")
 def listen_for_client(cs):
+    msg_length=""
+    msg=""
     while True:
         try:
-            msg = cs.recv(1024).decode()
-        except Exception as e:
+            msg_length = cs.recv(HEADER).decode()#Decoding the msg length first
+            msg_length1 = int(msg_length)
+            msg = cs.recv(msg_length1).decode()#Decoding msg
+        except Exception as e:     #close the connection if the above block result in error
             print(f"[!] Error: {e}")
             client_sockets.remove(cs)
-        else:
-            msg = msg.replace(separator_token, ": ")
-        for client_socket in client_sockets:
-            client_socket.send(msg.encode())
+        else: #Countinues if not
+            pass
+        for client_socket in client_sockets:#getting the no. of client iterables
+            client_socket.send(msg_length.encode())#Again encoding msg_length for client to broadcast
+            #send_to_all(client_socket,msg_length,msg)
+            client_socket.send(msg.encode())#Encoding the real msg
 
 while True:
-    client_socket, client_address = s.accept()
-    print(f"[+] {client_address} connected.")
+    '''accept() func will give 2 outputs first (here recevied by client_socket)
+     are the socket of client {file obj of the socket[dont worry about this]} second the address of the client
+     mainly its IP and port '''
+    client_socket, client_address = s.accept() #Connection establish between client and server
+    print(f"[SERVER] {client_address} connected.")
     client_sockets.add(client_socket)
+    '''#Starting a new thread so that the accept() func wont block the server and result in halt
+    because of the thread the server can parallely process multiple client without even waiting for single client'''
     t = Thread(target=listen_for_client, args=(client_socket,))
     t.daemon = True
     t.start()
 
-for cs in client_sockets:
+for cs in client_sockets:#once the while loop break closing all sockets
     cs.close()
-    
+
 s.close()
